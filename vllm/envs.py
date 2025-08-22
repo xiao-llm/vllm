@@ -161,6 +161,7 @@ if TYPE_CHECKING:
     VLLM_HAS_FLASHINFER_CUBIN: bool = False
     VLLM_USE_FLASHINFER_MOE_MXFP4_MXFP8: bool = False
     VLLM_USE_FLASHINFER_MOE_MXFP4_BF16: bool = False
+    VLLM_ALLREDUCE_USE_SYMM_MEM: bool = False
     VLLM_TUNED_CONFIG_FOLDER: Optional[str] = None
 
 
@@ -1157,10 +1158,17 @@ environment_variables: dict[str, Callable[[], Any]] = {
     lambda: bool(int(os.getenv("VLLM_ENABLE_RESPONSES_API_STORE", "0"))),
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     # If set, use the fp8 mfma in rocm paged attention.
     "VLLM_USE_FP8_MFMA":
     lambda: bool(int(os.getenv("VLLM_USE_FP8_MFMA", "0"))),
 =======
+=======
+    # Whether to use pytorch symmetric memory for allreduce
+    "VLLM_ALLREDUCE_USE_SYMM_MEM":
+    lambda: bool(int(os.getenv("VLLM_ALLREDUCE_USE_SYMM_MEM", "0"))),
+
+>>>>>>> 0313cf854 ([PERF] PyTorch Symmetric Memory All-Reduce (#20759))
     # Allows vllm to find tuned config under customized folder
     "VLLM_TUNED_CONFIG_FOLDER":
     lambda: os.getenv("VLLM_TUNED_CONFIG_FOLDER", None),
