@@ -1069,6 +1069,10 @@ environment_variables: dict[str, Callable[[], Any]] = {
     #    never removed from memory until the server terminates.
     "VLLM_ENABLE_RESPONSES_API_STORE":
     lambda: bool(int(os.getenv("VLLM_ENABLE_RESPONSES_API_STORE", "0"))),
+
+    # If set, use the fp8 mfma in rocm paged attention.
+    "VLLM_USE_FP8_MFMA":
+    lambda: bool(int(os.getenv("VLLM_USE_FP8_MFMA", "0"))),
 }
 
 # --8<-- [end:env-vars-definition]
