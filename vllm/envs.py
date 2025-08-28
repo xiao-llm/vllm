@@ -1177,33 +1177,18 @@ environment_variables: dict[str, Callable[[], Any]] = {
     "VLLM_ENABLE_RESPONSES_API_STORE":
     lambda: bool(int(os.getenv("VLLM_ENABLE_RESPONSES_API_STORE", "0"))),
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     # If set, use the fp8 mfma in rocm paged attention.
-<<<<<<< HEAD
-    "VLLM_ROCM_USE_FP8_PAGED_ATTN":
-    lambda: bool(int(os.getenv("VLLM_USE_FP8_MFMA", "0"))),
-=======
-=======
-=======
     "VLLM_ROCM_FP8_MFMA_PAGE_ATTN":
     lambda: bool(int(os.getenv("VLLM_ROCM_FP8_MFMA_PAGE_ATTN", "0"))),
-<<<<<<< HEAD
-  
->>>>>>> baec9e96c (Update envs.py)
-=======
 
->>>>>>> 0c785a544 (clean up space)
     # Whether to use pytorch symmetric memory for allreduce
     "VLLM_ALLREDUCE_USE_SYMM_MEM":
     lambda: bool(int(os.getenv("VLLM_ALLREDUCE_USE_SYMM_MEM", "0"))),
 
->>>>>>> 0313cf854 ([PERF] PyTorch Symmetric Memory All-Reduce (#20759))
     # Allows vllm to find tuned config under customized folder
     "VLLM_TUNED_CONFIG_FOLDER":
     lambda: os.getenv("VLLM_TUNED_CONFIG_FOLDER", None),
 
->>>>>>> 98deac387 ([FEATURE] support custom vllm tuned config path for fused moe triton kernels (#22791))
 }
 
 # --8<-- [end:env-vars-definition]
