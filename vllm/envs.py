@@ -1180,7 +1180,7 @@ environment_variables: dict[str, Callable[[], Any]] = {
 <<<<<<< HEAD
 <<<<<<< HEAD
     # If set, use the fp8 mfma in rocm paged attention.
-    "VLLM_USE_FP8_MFMA":
+    "VLLM_ROCM_USE_FP8_PAGED_ATTN":
     lambda: bool(int(os.getenv("VLLM_USE_FP8_MFMA", "0"))),
 =======
 =======
