@@ -20,6 +20,8 @@ the model dtype, which kept accuracy where mixing MXFP4-QDQ prefill with int8
 decode did not.
 """
 
+import os
+
 import torch
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
@@ -75,6 +77,53 @@ direct_register_custom_op(
     fake_impl=_rdna_mxfp4_w4a8_apply_fake,
 )
 
+# TEST ONLY: M <= 8 through our W4A8 GEMV, M > 8 through #46676's WMMA GEMM
+# (``_rocm_C.mxfp4_gemm_rdna3``, weights repacked to [K/8, N] int32).
+_PREFILL_46676 = os.environ.get("VLLM_RDNA_W4A8_PREFILL_46676") == "1"
+
+
+def _rdna_mxfp4_hybrid_apply_impl(
+    x_2d: torch.Tensor,
+    weight: torch.Tensor,
+    weight_scale: torch.Tensor,
+    weight_46676: torch.Tensor,
+    weight_scale_46676: torch.Tensor,
+    bias: torch.Tensor | None,
+) -> torch.Tensor:
+    import vllm._custom_ops as ops
+
+    M = x_2d.shape[0]
+    if M == 0:
+        return x_2d.new_empty((0, weight.shape[0]))
+    if M <= MAX_W4A8_BATCH_SIZE:
+        out = ops.mxfp4_w4a8_gemv(x_2d, weight, weight_scale)
+    else:
+        out = torch.ops._rocm_C.mxfp4_gemm_rdna3(x_2d, weight_46676, weight_scale_46676)
+    if bias is not None:
+        out.add_(bias)
+    return out
+
+
+def _rdna_mxfp4_hybrid_apply_fake(
+    x_2d: torch.Tensor,
+    weight: torch.Tensor,
+    weight_scale: torch.Tensor,
+    weight_46676: torch.Tensor,
+    weight_scale_46676: torch.Tensor,
+    bias: torch.Tensor | None,
+) -> torch.Tensor:
+    return torch.empty(
+        (x_2d.shape[0], weight.shape[0]), dtype=x_2d.dtype, device=x_2d.device
+    )
+
+
+direct_register_custom_op(
+    op_name="rdna_mxfp4_hybrid_apply",
+    op_func=_rdna_mxfp4_hybrid_apply_impl,
+    mutates_args=[],
+    fake_impl=_rdna_mxfp4_hybrid_apply_fake,
+)
+
 
 class RdnaW4A8MxFp4LinearKernel(MxFp4LinearKernel):
     """MXFP4 GEMM for RDNA3/RDNA3.5: W4A8 int8-dot GEMV for M <= 8, dequant +
@@ -128,6 +177,15 @@ class RdnaW4A8MxFp4LinearKernel(MxFp4LinearKernel):
             )
         layer.weight = Parameter(weight.contiguous(), requires_grad=False)
         layer.weight_scale = Parameter(weight_scale.contiguous(), requires_grad=False)
+        if _PREFILL_46676 and N % 16 == 0:
+            # Same repack as #46676's Rdna3MxFp4LinearKernel; doubles weight memory.
+            layer.weight_46676 = Parameter(
+                layer.weight.data.view(torch.int32).t().contiguous(),
+                requires_grad=False,
+            )
+            layer.weight_scale_46676 = Parameter(
+                layer.weight_scale.data.t().contiguous(), requires_grad=False
+            )
 
     def apply_weights(
         self,
@@ -138,7 +196,17 @@ class RdnaW4A8MxFp4LinearKernel(MxFp4LinearKernel):
         x_2d = x.reshape(-1, x.shape[-1])
         if not x_2d.is_contiguous():
             x_2d = x_2d.contiguous()
-        out = torch.ops.vllm.rdna_mxfp4_w4a8_apply(
-            x_2d, layer.weight, layer.weight_scale, bias
-        )
+        if hasattr(layer, "weight_46676"):
+            out = torch.ops.vllm.rdna_mxfp4_hybrid_apply(
+                x_2d,
+                layer.weight,
+                layer.weight_scale,
+                layer.weight_46676,
+                layer.weight_scale_46676,
+                bias,
+            )
+        else:
+            out = torch.ops.vllm.rdna_mxfp4_w4a8_apply(
+                x_2d, layer.weight, layer.weight_scale, bias
+            )
         return out.reshape(*x.shape[:-1], out.shape[-1])
